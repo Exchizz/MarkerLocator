@@ -42,7 +42,6 @@ t3 = np.angle(kernel_order_1_array * phase) < angleThreshold
 t4 = np.angle(kernel_order_1_array * phase) > -angleThreshold
 
 mask = 1-2*(t3 & t4)
-#mask = (image+1)*127
 image_without_arm = (img_t1_t2_diff) * mask
 
 
@@ -54,4 +53,8 @@ cv.SaveImage("Kernel_%d.jpg" % 1, t1_t2_diff)
 image_without_arm = (image_without_arm+1)*127
 mask_img = cv.fromarray(image_without_arm)
 cv.SaveImage("Kernel_%d.jpg" % 2, mask_img)
+
+img_mask = (mask.astype(np.float32)+1)*127
+img_mask = cv.fromarray(img_mask)
+cv.SaveImage("Kernel_%d.jpg" % 3, img_mask)
 
