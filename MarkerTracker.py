@@ -118,7 +118,6 @@ class MarkerTracker:
 	(xm, ym) = self.lastMarkerLocation
 
 
-	print "y: ", int(math.floor(float(self.kernelSize)/2)), " , ", int(math.ceil(float(self.kernelSize)/2))
 	y1 = ym - int(math.floor(float(self.kernelSize/2)))
 	y2 = ym + int(math.ceil(float(self.kernelSize/2)))
 
@@ -126,9 +125,8 @@ class MarkerTracker:
 	x2 = xm + int(math.ceil(float(self.kernelSize/2)))
 
 
-
-#	w,h = cv.GetSize(frame_org)
 	frame = frame_org[y1:y2, x1:x2]
+
 	w,h = cv.GetSize(frame)
 	im_dst = cv.CreateImage(cv.GetSize(frame), cv.IPL_DEPTH_8U, 1)
 	cv.Threshold(frame, im_dst, 128, 1, cv.CV_THRESH_BINARY)
