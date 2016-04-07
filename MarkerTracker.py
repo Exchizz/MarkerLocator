@@ -4,10 +4,10 @@ Marker tracker for locating n-fold edges in images using convolution.
 
 @author: Henrik Skov Midtiby
 """
-import cv
+import cv, cv2
 import numpy as np
 import math
-
+from time import sleep
 
 class MarkerTracker:
     '''
@@ -15,6 +15,7 @@ class MarkerTracker:
     '''
     def __init__(self, order, kernelSize, scaleFactor):
         self.kernelSize = kernelSize
+
         (kernelReal, kernelImag) = self.generateSymmetryDetectorKernel(order, kernelSize)
         self.order = order
         self.matReal = cv.CreateMat(kernelSize, kernelSize, cv.CV_32FC1)
@@ -33,6 +34,15 @@ class MarkerTracker:
             for j in range(kernelSize):
                 self.matRealThirdHarmonics[i, j] = kernelRealThirdHarmonics[i][j] / scaleFactor
                 self.matImagThirdHarmonics[i, j] = kernelImagThirdHarmonics[i][j] / scaleFactor
+
+	# Create kernel used to remove arm in quality-measure
+	(kernelRemoveArmReal, kernelRemoveArmImag) = self.generateSymmetryDetectorKernel(1, kernelSize)
+	self.kernelComplex = np.array(kernelReal + 1j*kernelImag, dtype=complex)
+	self.KernelRemoveArmComplex = np.array(kernelRemoveArmReal + 1j*kernelRemoveArmImag, dtype=complex)
+
+	# Values used in quality-measure
+	absolute = np.absolute(self.kernelComplex)
+	self.threshold = 0.4*absolute.max()
 
         self.quality = 0
                   
@@ -65,10 +75,11 @@ class MarkerTracker:
         self.frameImagThirdHarmonics = cv.CloneImage(frame)
 
         # Calculate convolution and determine response strength.
-        cv.Filter2D(self.frameReal, self.frameReal, self.matReal)
-        cv.Filter2D(self.frameImag, self.frameImag, self.matImag)
-        cv.Mul(self.frameReal, self.frameReal, self.frameRealSq)
-        cv.Mul(self.frameImag, self.frameImag, self.frameImagSq)
+        cv.Filter2D(self.frameReal, self.frameReal, self.matReal) # src, dst, kernel
+        cv.Filter2D(self.frameImag, self.frameImag, self.matImag) # src, dst, kernel
+
+        cv.Mul(self.frameReal, self.frameReal, self.frameRealSq) # src, src, dst
+        cv.Mul(self.frameImag, self.frameImag, self.frameImagSq) # src, src, dst
         cv.Add(self.frameRealSq, self.frameImagSq, self.frameSumSq)
 
         # Calculate convolution of third harmonics for quality estimation.
@@ -79,10 +90,69 @@ class MarkerTracker:
         self.lastMarkerLocation = max_loc
         (xm, ym) = max_loc
         self.determineMarkerOrientation(frame)
-        self.determineMarkerQuality()
+	self.determineMarkerQuality_Mathias(frame)
+#        self.determineMarkerQuality()
         return max_loc
 
-    def determineMarkerOrientation(self, frame):    
+    def determineMarkerQuality_Mathias(self, frame_org):
+
+	phase = np.exp((self.limitAngleToRange(-self.orientation))*1j)
+
+	t1_temp = self.kernelComplex*np.power(phase, self.order)
+	t1 = t1_temp.real > self.threshold
+
+	t2_temp = self.kernelComplex*np.power(phase, self.order)
+	t2 = t2_temp.real < -self.threshold
+
+	img_t1_t2_diff = t1.astype(np.float32)-t2.astype(np.float32)
+
+	angleThreshold = 3.14/(2*self.order)
+
+	t3 = np.angle(self.KernelRemoveArmComplex * phase) < angleThreshold
+	t4 = np.angle(self.KernelRemoveArmComplex * phase) > -angleThreshold
+	mask = 1-2*(t3 & t4)
+
+	template = (img_t1_t2_diff) * mask
+	template = cv.fromarray(1-template)
+
+	(xm, ym) = self.lastMarkerLocation
+
+
+	print "y: ", int(math.floor(float(self.kernelSize)/2)), " , ", int(math.ceil(float(self.kernelSize)/2))
+	y1 = ym - int(math.floor(float(self.kernelSize/2)))
+	y2 = ym + int(math.ceil(float(self.kernelSize/2)))
+
+	x1 = xm - int(math.floor(float(self.kernelSize/2)))
+	x2 = xm + int(math.ceil(float(self.kernelSize/2)))
+
+
+
+#	w,h = cv.GetSize(frame_org)
+	frame = frame_org[y1:y2, x1:x2]
+	w,h = cv.GetSize(frame)
+	im_dst = cv.CreateImage(cv.GetSize(frame), cv.IPL_DEPTH_8U, 1)
+	cv.Threshold(frame, im_dst, 128, 1, cv.CV_THRESH_BINARY)
+
+
+	matches = 0
+	w,h = cv.GetSize(im_dst)
+	for x in xrange(w):
+		for y in xrange(h):
+			if cv.Get2D(im_dst, y, x)[0] ==  cv.Get2D(template, y, x)[0]:
+				matches+=1
+
+
+	self.quality = float(matches)/(w*h)
+
+	im_dst = cv.CreateImage(cv.GetSize(frame), cv.IPL_DEPTH_8U, 1)
+	cv.Threshold(frame, im_dst, 115, 255, cv.CV_THRESH_BINARY)
+
+	cv.ShowImage("small_image", im_dst)
+	cv.ShowImage("temp_kernel", template)
+
+	
+
+    def determineMarkerOrientation(self, frame):
         (xm, ym) = self.lastMarkerLocation
         realval = cv.Get2D(self.frameReal, ym, xm)[0]
         imagval = cv.Get2D(self.frameImag, ym, xm)[0]
