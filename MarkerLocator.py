@@ -85,7 +85,6 @@ class CameraDriver:
         # sharpness (int)    : min=0 max=255 step=1 default=128 value=128
         os.system('v4l2-ctl -d ' + str(cameraDevice) + ' -c sharpness=200')
 
-        
     
     def setResolution(self):
 #        cv.SetCaptureProperty(self.camera, cv.CV_CAP_PROP_FRAME_WIDTH, 1280)
@@ -102,7 +101,7 @@ class CameraDriver:
     def processFrame(self):
         # Locate all markers in image.
         for k in range(len(self.trackers)):
-            if(self.oldLocations[k].x is None or self.oldLocations[k].quality < 0.4 and self.oldLocations[k].quality != 0 ):
+            if(self.oldLocations[k].x is None or self.oldLocations[k].quality < 0.3 and self.oldLocations[k].quality != 0 ):
                 # Previous marker location is unknown, search in the entire image.
 		print "Lost track of marker, searching entire image"
                 self.processedFrame = self.trackers[k].analyzeImage(self.currentFrame)
@@ -207,7 +206,7 @@ def main():
 
     #cd = CameraDriver(toFind, defaultKernelSize = 25) # Best in robolab.
 #    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="drone_flight.mkv")
-    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="loop_twist_marker_locator_by_hand.mkv")
+    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="recording_flight_with_5_marker_afternoon.mkv")
     t0 = time()
      
 

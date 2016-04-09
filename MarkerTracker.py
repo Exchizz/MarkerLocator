@@ -110,45 +110,34 @@ class MarkerTracker:
 
 	t3 = np.angle(self.KernelRemoveArmComplex * phase) < angleThreshold
 	t4 = np.angle(self.KernelRemoveArmComplex * phase) > -angleThreshold
-	mask = 1-2*(t3 & t4)
+	mask = 1-1*(t3 & t4)
 
-	template = (img_t1_t2_diff) * mask
-	template = cv.fromarray(1-template)
+	template = (((img_t1_t2_diff * mask))*255).astype(np.uint8)
 
 	(xm, ym) = self.lastMarkerLocation
 
+	y1 = ym - int(math.floor(float(self.kernelSize)/2))
+	y2 = ym + int(math.ceil(float(self.kernelSize)/2))
 
-	y1 = ym - int(math.floor(float(self.kernelSize/2)))
-	y2 = ym + int(math.ceil(float(self.kernelSize/2)))
-
-	x1 = xm - int(math.floor(float(self.kernelSize/2)))
-	x2 = xm + int(math.ceil(float(self.kernelSize/2)))
-
-
-	frame = frame_org[y1:y2, x1:x2]
-
-	w,h = cv.GetSize(frame)
-	im_dst = cv.CreateImage(cv.GetSize(frame), cv.IPL_DEPTH_8U, 1)
-	cv.Threshold(frame, im_dst, 128, 1, cv.CV_THRESH_BINARY)
+	x1 = xm - int(math.floor(float(self.kernelSize)/2))
+	x2 = xm + int(math.ceil(float(self.kernelSize)/2))
 
 
-	matches = 0
-	w,h = cv.GetSize(im_dst)
-	for x in xrange(w):
-		for y in xrange(h):
-			if cv.Get2D(im_dst, y, x)[0] ==  cv.Get2D(template, y, x)[0]:
-				matches+=1
+	frame = 255-np.array(frame_org[y1:y2, x1:x2]).astype(np.uint8)
 
+	frame = cv.fromarray(frame)
 
-	self.quality = float(matches)/(w*h)
+	frame_w, frame_h = cv.GetSize(frame)
+	template = cv.fromarray(template[0:frame_h, 0:frame_w])
 
-	im_dst = cv.CreateImage(cv.GetSize(frame), cv.IPL_DEPTH_8U, 1)
-	cv.Threshold(frame, im_dst, 115, 255, cv.CV_THRESH_BINARY)
+	match = cv.CreateImage((1,1), cv.IPL_DEPTH_32F, 1)
 
-	cv.ShowImage("small_image", im_dst)
 	cv.ShowImage("temp_kernel", template)
+	cv.ShowImage("small_image", frame)
 
-	
+	cv.MatchTemplate(frame, template, match, cv.CV_TM_CCOEFF_NORMED)
+	self.quality = match[0,0]
+
 
     def determineMarkerOrientation(self, frame):
         (xm, ym) = self.lastMarkerLocation
