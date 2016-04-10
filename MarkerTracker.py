@@ -4,7 +4,7 @@ Marker tracker for locating n-fold edges in images using convolution.
 
 @author: Henrik Skov Midtiby
 """
-import cv, cv2
+import cv2.cv as cv
 import numpy as np
 import math
 from time import sleep
@@ -45,6 +45,12 @@ class MarkerTracker:
 	self.threshold = 0.4*absolute.max()
 
         self.quality = 0
+	self.y1 = int(math.floor(float(self.kernelSize)/2))
+	self.y2 = int(math.ceil(float(self.kernelSize)/2))
+
+	self.x1 = int(math.floor(float(self.kernelSize)/2))
+	self.x2 = int(math.ceil(float(self.kernelSize)/2))
+
                   
     def generateSymmetryDetectorKernel(self, order, kernelsize):
         valueRange = np.linspace(-1, 1, kernelsize);
@@ -67,6 +73,8 @@ class MarkerTracker:
         self.frameImagSq = cv.CreateImage ((frame.width, frame.height), cv.IPL_DEPTH_32F, 1)
         self.frameSumSq = cv.CreateImage ((frame.width, frame.height), cv.IPL_DEPTH_32F, 1)
 
+
+	self.quality_match = cv.CreateImage((1,1), cv.IPL_DEPTH_32F, 1)
     
     def locateMarker(self, frame):
         self.frameReal = cv.CloneImage(frame)
@@ -94,50 +102,42 @@ class MarkerTracker:
 #        self.determineMarkerQuality()
         return max_loc
 
-    def determineMarkerQuality_Mathias(self, frame_org):
+    def determineMarkerQuality_Mathias(self, frame):
 
 	phase = np.exp((self.limitAngleToRange(-self.orientation))*1j)
+	angleThreshold = 3.14/(2*self.order)
 
-	t1_temp = self.kernelComplex*np.power(phase, self.order)
-	t1 = t1_temp.real > self.threshold
-
-	t2_temp = self.kernelComplex*np.power(phase, self.order)
-	t2 = t2_temp.real < -self.threshold
+	t1 = (self.kernelComplex*np.power(phase, self.order)).real > self.threshold
+	t2 = (self.kernelComplex*np.power(phase, self.order)).real < -self.threshold
 
 	img_t1_t2_diff = t1.astype(np.float32)-t2.astype(np.float32)
 
-	angleThreshold = 3.14/(2*self.order)
-
 	t3 = np.angle(self.KernelRemoveArmComplex * phase) < angleThreshold
 	t4 = np.angle(self.KernelRemoveArmComplex * phase) > -angleThreshold
+
 	mask = 1-1*(t3 & t4)
 
 	template = (((img_t1_t2_diff * mask))*255).astype(np.uint8)
 
 	(xm, ym) = self.lastMarkerLocation
 
-	y1 = ym - int(math.floor(float(self.kernelSize)/2))
-	y2 = ym + int(math.ceil(float(self.kernelSize)/2))
 
-	x1 = xm - int(math.floor(float(self.kernelSize)/2))
-	x2 = xm + int(math.ceil(float(self.kernelSize)/2))
+	frame_tmp = np.array(frame[ym-self.y1:ym+self.y2, xm-self.x1:xm+self.x2])
 
+	frame_copy = frame_tmp.copy()
+	frame_img = cv.fromarray(255-frame_tmp.astype(np.uint8))
 
-	frame = 255-np.array(frame_org[y1:y2, x1:x2]).astype(np.uint8)
+	frame_w, frame_h = cv.GetSize(frame_img)
 
-	frame = cv.fromarray(frame)
+	template_copy = template[0:frame_h, 0:frame_w].copy()
+	template = cv.fromarray(template_copy)
 
-	frame_w, frame_h = cv.GetSize(frame)
-	template = cv.fromarray(template[0:frame_h, 0:frame_w])
-
-	match = cv.CreateImage((1,1), cv.IPL_DEPTH_32F, 1)
 
 	cv.ShowImage("temp_kernel", template)
-	cv.ShowImage("small_image", frame)
+	cv.ShowImage("small_image", frame_img)
 
-	cv.MatchTemplate(frame, template, match, cv.CV_TM_CCOEFF_NORMED)
-	self.quality = match[0,0]
-
+	cv.MatchTemplate(frame_img, template, self.quality_match, cv.CV_TM_CCORR_NORMED) # cv.CV_TM_CCOEFF_NORMED, unstable
+	self.quality = self.quality_match[0,0]
 
     def determineMarkerOrientation(self, frame):
         (xm, ym) = self.lastMarkerLocation
