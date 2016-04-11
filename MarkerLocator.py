@@ -100,20 +100,21 @@ class CameraDriver:
 
     def processFrame(self):
         # Locate all markers in image.
-	        for k in range(len(self.trackers)):
-	            if(self.oldLocations[k].x is None or self.oldLocations[k].quality < 0.4 and self.oldLocations[k].quality != 0 ):
-	                # Previous marker location is unknown, search in the entire image.
-			print "Lost track of marker, searching entire image"
-	                self.processedFrame = self.trackers[k].analyzeImage(self.currentFrame)
-	                markerX = self.trackers[k].markerLocationsX[0]
-	                markerY = self.trackers[k].markerLocationsY[0]
-	                order = self.trackers[k].markerTrackers[0].order
-	                self.oldLocations[k] = MarkerPose(markerX, markerY, self.defaultOrientation, 0, order)
-	            else:
-	                # Search for marker around the old location.
-	                self.windowedTrackers[k].cropFrame(self.currentFrame, self.oldLocations[k].x, self.oldLocations[k].y)
-	                self.oldLocations[k] = self.windowedTrackers[k].locateMarker()
-	                self.windowedTrackers[k].showCroppedImage()
+       for k in range(len(self.trackers)):
+            if(self.oldLocations[k].x is None or self.oldLocations[k].quality < 0.4 and self.oldLocations[k].quality != 0 ):
+                # Previous marker location is unknown, search in the entire image.
+		print "Lost track of marker, searching entire image"
+                self.processedFrame = self.trackers[k].analyzeImage(self.currentFrame)
+                markerX = self.trackers[k].markerLocationsX[0]
+                markerY = self.trackers[k].markerLocationsY[0]
+                order = self.trackers[k].markerTrackers[0].order
+		quality = self.trackers[k].markerTrackers[0].quality
+                self.oldLocations[k] = MarkerPose(markerX, markerY, self.defaultOrientation, quality, order)
+            else:
+                # Search for marker around the old location.
+                self.windowedTrackers[k].cropFrame(self.currentFrame, self.oldLocations[k].x, self.oldLocations[k].y)
+                self.oldLocations[k] = self.windowedTrackers[k].locateMarker()
+                self.windowedTrackers[k].showCroppedImage()
 
 
     def publishImageFrame(self, RP):
@@ -121,14 +122,14 @@ class CameraDriver:
         RP.publishImage(im)
 
     def drawDetectedMarkers(self):
-	        for k in xrange(len(self.trackers)):
-	            xm = self.oldLocations[k].x
-	            ym = self.oldLocations[k].y
-	            orientation = self.oldLocations[k].theta
-	            cv.Circle(self.processedFrame, (xm, ym), 4, (55, 55, 255), 2)
-	            xm2 = int(xm + 50*math.cos(orientation))
-	            ym2 = int(ym + 50*math.sin(orientation))
-	            cv.Line(self.processedFrame, (xm, ym), (xm2, ym2), (255, 0, 0), 2)
+        for k in xrange(len(self.trackers)):
+            xm = self.oldLocations[k].x
+            ym = self.oldLocations[k].y
+            orientation = self.oldLocations[k].theta
+            cv.Circle(self.processedFrame, (xm, ym), 4, (55, 55, 255), 2)
+            xm2 = int(xm + 50*math.cos(orientation))
+            ym2 = int(ym + 50*math.sin(orientation))
+            cv.Line(self.processedFrame, (xm, ym), (xm2, ym2), (255, 0, 0), 2)
 
     def showProcessedFrame(self):
         cv.ShowImage('filterdemo', self.processedFrame)

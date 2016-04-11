@@ -124,7 +124,7 @@ class MarkerTracker:
 
 	frame_tmp = np.array(frame[ym-self.y1:ym+self.y2, xm-self.x1:xm+self.x2])
 
-	frame_copy = frame_tmp.copy()
+	frame_copy = frame_tmp.copy() # .copy() solves bug: http://www.shuangrimu.com/6/
 	frame_img = cv.fromarray(255-frame_tmp.astype(np.uint8))
 
 	frame_w, frame_h = cv.GetSize(frame_img)
@@ -136,7 +136,7 @@ class MarkerTracker:
 	cv.ShowImage("temp_kernel", template)
 	cv.ShowImage("small_image", frame_img)
 
-	cv.MatchTemplate(frame_img, template, self.quality_match, cv.CV_TM_CCORR_NORMED) # cv.CV_TM_CCOEFF_NORMED, unstable
+	cv.MatchTemplate(frame_img, template, self.quality_match, cv.CV_TM_CCORR_NORMED) # cv.CV_TM_CCORR_NORMED shows best results
 	self.quality = self.quality_match[0,0]
 
     def determineMarkerOrientation(self, frame):
