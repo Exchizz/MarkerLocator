@@ -27,7 +27,7 @@ Structural changes allows simultaneous tracking of several markers.
 Frederik Hagelskjaer added code to publish marker locations to ROS.
 '''
 
-PublishToROS = False
+PublishToROS = True
 
 if PublishToROS:
     import rospy
@@ -47,6 +47,9 @@ class CameraDriver:
 	cv.NamedWindow('temp_kernel', cv.CV_WINDOW_NORMAL)
 	cv.NamedWindow('small_image', cv.CV_WINDOW_NORMAL)
 
+
+	self.cameraDevice = cameraDevice
+
 	# If an interface has been given to the constructor, it's a camdevice and we need to set some properties. If it's not, it means it's a file.
 	if(isinstance(cameraDevice, numbers.Integral)):
 	        self.setFocus()
@@ -55,6 +58,7 @@ class CameraDriver:
 	else:
 		self.camera = cv.CaptureFromFile(cameraDevice)
         self.setResolution()
+
 
         # Storage for image processing.
         self.currentFrame = None
@@ -76,14 +80,14 @@ class CameraDriver:
 
     def setFocus(self):
         # Disable autofocus
-        os.system('v4l2-ctl -d '+str(cameraDevice)+' -c focus_auto=0')
+        os.system('v4l2-ctl -d '+str(self.cameraDevice)+' -c focus_auto=0')
         
         # Set focus to a specific value. High values for nearby objects and
         # low values for distant objects.
-        os.system('v4l2-ctl -d ' + str(cameraDevice) + ' -c focus_absolute=0')
+        os.system('v4l2-ctl -d ' + str(self.cameraDevice) + ' -c focus_absolute=0')
 
         # sharpness (int)    : min=0 max=255 step=1 default=128 value=128
-        os.system('v4l2-ctl -d ' + str(cameraDevice) + ' -c sharpness=200')
+        os.system('v4l2-ctl -d ' + str(self.cameraDevice) + ' -c sharpness=200') # default 200
 
     
     def setResolution(self):
@@ -101,7 +105,8 @@ class CameraDriver:
     def processFrame(self):
         # Locate all markers in image.
        for k in range(len(self.trackers)):
-            if(self.oldLocations[k].x is None or self.oldLocations[k].quality < 0.4 and self.oldLocations[k].quality != 0 ):
+#            if(self.oldLocations[k].x is None or self.oldLocations[k].quality < 0.4 and self.oldLocations[k].quality != 0 ):
+            if(self.oldLocations[k].x is None or self.oldLocations[k].quality < 0.4):
                 # Previous marker location is unknown, search in the entire image.
 		print "Lost track of marker, searching entire image"
                 self.processedFrame = self.trackers[k].analyzeImage(self.currentFrame)
@@ -154,6 +159,7 @@ class CameraDriver:
             # save image
             print("Saving image")
             filename = strftime("%Y-%m-%d %H-%M-%S")
+	    print self.currentFrame
             cv.SaveImage("output/%s.png" % filename, self.currentFrame)
 
     def returnPositions(self):
@@ -206,6 +212,7 @@ def main():
     #cd = CameraDriver(toFind, defaultKernelSize = 25) # Best in robolab.
 #    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="drone_flight.mkv")
     cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="recording_flight_with_5_marker_afternoon.mkv")
+#    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="square.mkv")
     t0 = time()
      
 
