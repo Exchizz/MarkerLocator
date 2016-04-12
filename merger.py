@@ -12,7 +12,7 @@ import numpy as np
 from time import time, strftime
 
 
-nFrames = 400
+nFrames = 408
 
 camera = cv2.VideoCapture("square.mkv")
 
@@ -57,5 +57,5 @@ for i in range(nFrames):
 	done_frame += diff
 
 cv2.imwrite("background_with_drones.png", done_frame.astype(np.uint8))
-cv2.imshow('dst_rt', done_frame.astype(np.uint8))
-cv2.waitKey(0)
+#cv2.imshow('dst_rt', done_frame.astype(np.uint8))
+#cv2.waitKey(0)
