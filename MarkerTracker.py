@@ -98,9 +98,77 @@ class MarkerTracker:
         self.lastMarkerLocation = max_loc
         (xm, ym) = max_loc
         self.determineMarkerOrientation(frame)
+#	self.determineMarkerQuality_naive(frame)
 	self.determineMarkerQuality_Mathias(frame)
 #        self.determineMarkerQuality()
         return max_loc
+
+    def determineMarkerQuality_naive(self, frame_org):
+
+	phase = np.exp((self.limitAngleToRange(-self.orientation))*1j)
+
+	t1_temp = self.kernelComplex*np.power(phase, self.order)
+	t1 = t1_temp.real > self.threshold
+
+	t2_temp = self.kernelComplex*np.power(phase, self.order)
+	t2 = t2_temp.real < -self.threshold
+
+	img_t1_t2_diff = t1.astype(np.float32)-t2.astype(np.float32)
+
+	angleThreshold = 3.14/(2*self.order)
+
+	t3 = np.angle(self.KernelRemoveArmComplex * phase) < angleThreshold
+	t4 = np.angle(self.KernelRemoveArmComplex * phase) > -angleThreshold
+	mask = 1-2*(t3 & t4)
+
+	template = (img_t1_t2_diff) * mask
+	template = cv.fromarray(1-template)
+
+	(xm, ym) = self.lastMarkerLocation
+
+
+	y1 = ym - int(math.floor(float(self.kernelSize/2)))
+	y2 = ym + int(math.ceil(float(self.kernelSize/2)))
+
+	x1 = xm - int(math.floor(float(self.kernelSize/2)))
+	x2 = xm + int(math.ceil(float(self.kernelSize/2)))
+
+
+
+	try:
+		frame = frame_org[y1:y2, x1:x2]
+	except(TypeError):
+		self.quality = 0
+		return
+	w,h = cv.GetSize(frame)
+	im_dst = cv.CreateImage(cv.GetSize(frame), cv.IPL_DEPTH_8U, 1)
+	cv.Threshold(frame, im_dst, 128, 1, cv.CV_THRESH_BINARY)
+
+
+	matches = 0
+	blacks = 0
+	w,h = cv.GetSize(im_dst)
+	for x in xrange(w):
+		for y in xrange(h):
+			if cv.Get2D(im_dst, y, x)[0] == 0: # if pixel is black
+				blacks+=1
+				if cv.Get2D(im_dst, y, x)[0] ==  cv.Get2D(template, y, x)[0]:
+					matches+=1
+			else:
+				continue
+
+
+#	self.quality = float(matches)/(w*h)
+	self.quality = float(matches)/blacks
+
+	im_dst = cv.CreateImage(cv.GetSize(frame), cv.IPL_DEPTH_8U, 1)
+	cv.Threshold(frame, im_dst, 115, 255, cv.CV_THRESH_BINARY)
+
+	cv.ShowImage("small_image", im_dst)
+	cv.ShowImage("temp_kernel", template)
+
+	
+
 
     def determineMarkerQuality_Mathias(self, frame):
 
@@ -122,8 +190,13 @@ class MarkerTracker:
 	(xm, ym) = self.lastMarkerLocation
 
 
-	frame_tmp = np.array(frame[ym-self.y1:ym+self.y2, xm-self.x1:xm+self.x2])
-
+	#print "ym: ", ym, " xm: ", xm, " y1: ", self.y1, " y2:", self.y2, ",x1: ", self.x1, " x2:", self.x2
+	try:
+		frame_tmp = np.array(frame[ym-self.y1:ym+self.y2, xm-self.x1:xm+self.x2])
+	except(TypeError):
+		print "error"
+		self.quality = 0.0
+		return
 	frame_copy = frame_tmp.copy() # .copy() solves bug: http://www.shuangrimu.com/6/
 	frame_img = cv.fromarray(255-frame_tmp.astype(np.uint8))
 
