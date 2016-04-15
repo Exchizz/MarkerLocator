@@ -41,11 +41,9 @@ class CameraDriver:
     def __init__(self, markerOrders = [7, 8], defaultKernelSize = 21, scalingParameter = 2500, cameraDevice=0):
         # Initialize camera driver.
         # Open output window.
-#        cv.NamedWindow('filterdemo', cv.CV_WINDOW_AUTOSIZE)
         cv.NamedWindow('filterdemo', cv.CV_WINDOW_NORMAL)
-#        cv.NamedWindow('filterdemo', cv.CV_WINDOW_AUTOSIZE)
-	cv.NamedWindow('temp_kernel', cv.CV_WINDOW_NORMAL)
-	cv.NamedWindow('small_image', cv.CV_WINDOW_NORMAL)
+#	cv.NamedWindow('temp_kernel', cv.CV_WINDOW_NORMAL)
+#	cv.NamedWindow('small_image', cv.CV_WINDOW_NORMAL)
 
 
 	self.cameraDevice = cameraDevice
@@ -204,15 +202,17 @@ def main():
     print 'function vers1 takes %f' %(t1-t0)
     print 'function vers2 takes %f' %(t2-t1)
     
-    toFind = [6]
+    toFind = [4,6]
 
     if PublishToROS:
         RP = RosPublisher(toFind)
 
     #cd = CameraDriver(toFind, defaultKernelSize = 25) # Best in robolab.
 #    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="drone_flight.mkv")
-    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="recording_flight_with_5_marker_afternoon.mkv")
+#    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="recording_flight_with_5_marker_afternoon.mkv")
 #    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="square.mkv")
+#    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="eskild.mkv")
+    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="two_drones_in_square.mkv")
     t0 = time()
      
 

@@ -98,8 +98,8 @@ class MarkerTracker:
         self.lastMarkerLocation = max_loc
         (xm, ym) = max_loc
         self.determineMarkerOrientation(frame)
-#	self.determineMarkerQuality_naive(frame)
-	self.determineMarkerQuality_Mathias(frame)
+	self.determineMarkerQuality_naive(frame)
+#	self.determineMarkerQuality_Mathias(frame)
 #        self.determineMarkerQuality()
         return max_loc
 
@@ -164,8 +164,8 @@ class MarkerTracker:
 	im_dst = cv.CreateImage(cv.GetSize(frame), cv.IPL_DEPTH_8U, 1)
 	cv.Threshold(frame, im_dst, 115, 255, cv.CV_THRESH_BINARY)
 
-	cv.ShowImage("small_image", im_dst)
-	cv.ShowImage("temp_kernel", template)
+#	cv.ShowImage("small_image", im_dst)
+#	cv.ShowImage("temp_kernel", template)
 
 	
 
@@ -206,8 +206,8 @@ class MarkerTracker:
 	template = cv.fromarray(template_copy)
 
 
-	cv.ShowImage("temp_kernel", template)
-	cv.ShowImage("small_image", frame_img)
+#	cv.ShowImage("temp_kernel", template)
+#	cv.ShowImage("small_image", frame_img)
 
 	cv.MatchTemplate(frame_img, template, self.quality_match, cv.CV_TM_CCORR_NORMED) # cv.CV_TM_CCORR_NORMED shows best results
 	self.quality = self.quality_match[0,0]
