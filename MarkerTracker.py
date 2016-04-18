@@ -5,9 +5,12 @@ Marker tracker for locating n-fold edges in images using convolution.
 @author: Henrik Skov Midtiby
 """
 import cv2.cv as cv
+import cv2
 import numpy as np
 import math
 from time import sleep
+
+from skimage.measure import structural_similarity as ssim
 
 class MarkerTracker:
     '''
@@ -98,10 +101,40 @@ class MarkerTracker:
         self.lastMarkerLocation = max_loc
         (xm, ym) = max_loc
         self.determineMarkerOrientation(frame)
-	self.determineMarkerQuality_naive(frame)
-#	self.determineMarkerQuality_Mathias(frame)
+#	self.determineMarkerQuality_naive(frame)
+	self.determineMarkerQuality_Mathias(frame)
 #        self.determineMarkerQuality()
+
         return max_loc
+
+    def determineMarkerOrder(self, img_small):
+#	orientation = self.orientation
+
+        (xm, ym) = self.lastMarkerLocation
+	searchDist = self.kernelSize / 2
+	# Order is defined as 1+number of black arms
+	detectedOrder = 1
+
+	for order in xrange(self.order):
+		angle1 = self.orientation + order*2*math.pi/self.order
+		angle1 = self.limitAngleToRange(angle1)
+
+
+		xm2 = int(xm + searchDist*math.cos(angle1))
+		ym2 = int(ym + searchDist*math.sin(angle1))
+
+		intensity = img_small[ym2, xm2]
+		
+		if intensity < 100:
+			detectedOrder +=1
+			#img_small[ym2-1, xm2-1] = 128
+			#img_small[ym2, xm2] = 128
+			#img_small[ym2+1, xm2+1] = 128
+
+	return detectedOrder
+	#cv.SaveImage("output/detect_order.png", img_small)
+
+	#print "detected Order: ", detectedOrder, " order: ", self.order
 
     def determineMarkerQuality_naive(self, frame_org):
 
@@ -178,40 +211,105 @@ class MarkerTracker:
 	t1 = (self.kernelComplex*np.power(phase, self.order)).real > self.threshold
 	t2 = (self.kernelComplex*np.power(phase, self.order)).real < -self.threshold
 
-	img_t1_t2_diff = t1.astype(np.float32)-t2.astype(np.float32)
+	img_t1_t2_diff = t1.astype(np.int8)-t2.astype(np.int8)
+#	img_t1_t2_diff = t1-t2
 
 	t3 = np.angle(self.KernelRemoveArmComplex * phase) < angleThreshold
 	t4 = np.angle(self.KernelRemoveArmComplex * phase) > -angleThreshold
 
-	mask = 1-1*(t3 & t4)
+	mask = 1-2*(t3 & t4)
+	temp = img_t1_t2_diff * mask
 
-	template = (((img_t1_t2_diff * mask))*255).astype(np.uint8)
+	template = 127+(1-temp*127)
 
+
+	mask = (temp == -1)*1 + (temp == 1)*1
+
+#	print  str(template).replace('.','').replace('[','').replace(']','')
+#	exit()
 	(xm, ym) = self.lastMarkerLocation
-
-
-	#print "ym: ", ym, " xm: ", xm, " y1: ", self.y1, " y2:", self.y2, ",x1: ", self.x1, " x2:", self.x2
 	try:
-		frame_tmp = np.array(frame[ym-self.y1:ym+self.y2, xm-self.x1:xm+self.x2])
+		y1 = ym-self.y1 if ym-self.y1 > 0 else 0
+
+		y2 = ym+self.y2
+
+		x1 = xm-self.x1 if xm-self.x1 > 0 else 0
+		x2 = xm+self.x2
+
+			
+		frame_tmp = np.array(frame[y1:y2, x1:x2])
 	except(TypeError):
+		print ym-self.y1, ym+self.y2, xm-self.x1, xm+self.x2
 		print "error"
 		self.quality = 0.0
-		return
-	frame_copy = frame_tmp.copy() # .copy() solves bug: http://www.shuangrimu.com/6/
-	frame_img = cv.fromarray(255-frame_tmp.astype(np.uint8))
+		exit(1)
 
-	frame_w, frame_h = cv.GetSize(frame_img)
-
-	template_copy = template[0:frame_h, 0:frame_w].copy()
-	template = cv.fromarray(template_copy)
+#	print "size img: ", frame_tmp.shape, " size mask: ", mask.shape
+	img_small = cv.fromarray( frame_tmp.astype( np.uint8 )  )
 
 
-#	cv.ShowImage("temp_kernel", template)
-#	cv.ShowImage("small_image", frame_img)
+	frame_w, frame_h = cv.GetSize(img_small)
+#	print "img_size: ", cv.GetSize(img_small)
 
-	cv.MatchTemplate(frame_img, template, self.quality_match, cv.CV_TM_CCORR_NORMED) # cv.CV_TM_CCORR_NORMED shows best results
-	self.quality = self.quality_match[0,0]
+	template = template[0:frame_h, 0:frame_w].copy()
 
+	img_template = cv.fromarray( template.astype( np.uint8 ) )
+
+
+	if True:
+		s = ssim( np.array( img_small ), np.array (img_template ))
+#		print "uality from scipy: ", s
+		self.quality = s
+
+	if False:
+		cv.Threshold( img_small, img_small, 127, 255, cv.CV_THRESH_BINARY)
+
+		cv.ShowImage("temp_kernel", img_template)
+		cv.ShowImage("small_image", img_small)
+		matches = 0.0
+#		sum = 0.0
+		px_count = 0
+
+		w,h = cv.GetSize(img_small)
+		for x in xrange(w):
+			for y in xrange(h):
+				if img_template[y, x] != 128:
+					px_count+=1
+					if img_small[y, x] == img_template[y, x]:
+						matches+=1
+
+
+#		print "Matches: ", matches, "px_count: ", px_count
+		self.quality = matches/(px_count)
+	if False:
+#		cv.ShowImage("small_image", img_small)
+
+		cv.Threshold( img_small, img_small, 127, 255, cv.CV_THRESH_BINARY)
+
+		template = np.array( img_template )
+		template[template == 255] = 1
+		template[template == 0] = 1
+		template[template == 128] = 0
+#		cv.And(img_small, img_small, img_small, mask = cv.fromarray( template ))
+#		res = cv2.bitwise_and(np.array(img_small), np.array(img_small),mask = template)
+		res = cv2.bitwise_xor(np.array(img_small), np.array (img_template),mask = template)
+#		print float(frame_w*frame_h - (res == 1).sum())/(frame_w*frame_h)
+#		print np.array(res)
+		print (res == 1).sum()
+		cv.ShowImage("small_image",  cv.fromarray(res)  )
+
+		cv.MatchTemplate( cv.fromarray( res ), img_template, self.quality_match, cv.CV_TM_CCORR_NORMED) # cv.CV_TM_CCORR_NORMED shows best results
+
+		size = (template == 1).sum()
+		self.quality = float(size - (res == 1).sum())/(size)
+
+#	if True:
+#		cv.ShowImage("temp_kernel", img_template)
+#		cv.ShowImage("small_image", img_small)
+#		cv.MatchTemplate( img_small, img_template, self.quality_match, cv.CV_TM_CCORR_NORMED) # cv.CV_TM_CCORR_NORMED shows best results
+#		self.quality = self.quality_match[0,0]	
+
+	order = self.determineMarkerOrder(frame)
     def determineMarkerOrientation(self, frame):
         (xm, ym) = self.lastMarkerLocation
         realval = cv.Get2D(self.frameReal, ym, xm)[0]
