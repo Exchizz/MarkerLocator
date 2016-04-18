@@ -101,17 +101,15 @@ class MarkerTracker:
         self.lastMarkerLocation = max_loc
         (xm, ym) = max_loc
         self.determineMarkerOrientation(frame)
-#	self.determineMarkerQuality_naive(frame)
-	self.determineMarkerQuality_Mathias(frame)
-#        self.determineMarkerQuality()
+	self.determineMarkerQuality(frame)
 
         return max_loc
 
     def determineMarkerOrder(self, img_small):
-#	orientation = self.orientation
 
         (xm, ym) = self.lastMarkerLocation
 	searchDist = self.kernelSize / 2
+
 	# Order is defined as 1+number of black arms
 	detectedOrder = 1
 
@@ -129,7 +127,6 @@ class MarkerTracker:
 			print "less than zero, line 127"
 			
 		if ym2 > h or xm2 > w:
-#			print "greater than image, line 131"
 			if ym2 > h:
 				ym2 = h-1
 
@@ -147,7 +144,7 @@ class MarkerTracker:
 	return detectedOrder
 	#cv.SaveImage("output/detect_order.png", img_small)
 
-    def determineMarkerQuality_Mathias(self, frame):
+    def determineMarkerQuality(self, frame):
 
 	phase = np.exp((self.limitAngleToRange(-self.orientation))*1j)
 	angleThreshold = 3.14/(2*self.order)
@@ -164,9 +161,6 @@ class MarkerTracker:
 	temp = img_t1_t2_diff * mask
 
 	template = 127+(1-temp*127)
-
-
-#	mask = (temp == -1)*1 + (temp == 1)*1
 
 	(xm, ym) = self.lastMarkerLocation
 	try:
@@ -191,10 +185,6 @@ class MarkerTracker:
 	frame_w, frame_h = cv.GetSize(img_small)
 	template = template[0:frame_h, 0:frame_w].copy()
 	img_template = cv.fromarray( template.astype( np.uint8 ) )
-
-	if False:
-		s = ssim( np.array( img_small ), np.array (img_template ))
-		self.quality = s
 
 	if True:
 		cv.ShowImage("temp_kernel", img_template)
@@ -246,36 +236,6 @@ class MarkerTracker:
 
         self.orientation = self.limitAngleToRange(maxOrient)
 
-    def determineMarkerQuality(self):
-        (xm, ym) = self.lastMarkerLocation
-        realval = cv.Get2D(self.frameReal, ym, xm)[0]
-        imagval = cv.Get2D(self.frameImag, ym, xm)[0]
-        realvalThirdHarmonics = cv.Get2D(self.frameRealThirdHarmonics, ym, xm)[0]
-        imagvalThirdHarmonics = cv.Get2D(self.frameImagThirdHarmonics, ym, xm)[0]
-        argumentPredicted = 3*math.atan2(-realval, imagval)
-        argumentThirdHarmonics = math.atan2(-realvalThirdHarmonics, imagvalThirdHarmonics)
-        argumentPredicted = self.limitAngleToRange(argumentPredicted)
-        argumentThirdHarmonics = self.limitAngleToRange(argumentThirdHarmonics)
-        difference = self.limitAngleToRange(argumentPredicted - argumentThirdHarmonics)
-        strength = math.sqrt(realval*realval + imagval*imagval)
-        strengthThirdHarmonics = math.sqrt(realvalThirdHarmonics*realvalThirdHarmonics + imagvalThirdHarmonics*imagvalThirdHarmonics)
-        #print("Arg predicted: %5.2f  Arg found: %5.2f  Difference: %5.2f" % (argumentPredicted, argumentThirdHarmonics, difference))        
-        #print("angdifferenge: %5.2f  strengthRatio: %8.5f" % (difference, strengthThirdHarmonics / strength))
-        # angdifference \in [-0.2; 0.2]
-        # strengthRatio \in [0.03; 0.055]
-        self.quality = math.exp(-math.pow(difference/0.3, 2))
-        #self.printMarkerQuality(self.quality)
-        
-    def printMarkerQuality(self, quality):
-        stars = ""        
-        if(quality > 0.5):
-            stars = "**"
-        if(quality > 0.7):
-            stars = "***"
-        if(quality > 0.9):
-            stars = "****"
-        print("quality = %d): %5.2f %s" % (self.order, quality, stars))
-        
     def limitAngleToRange(self, angle):
         while(angle < math.pi):
             angle += 2*math.pi
