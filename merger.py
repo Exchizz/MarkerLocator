@@ -14,17 +14,20 @@ from time import time, strftime
 
 nFrames = 408
 
-camera = cv2.VideoCapture("square.mkv")
+camera = cv2.VideoCapture("../my_video-10.mkv")
 
 cv2.namedWindow('dst_rt', cv2.WINDOW_NORMAL)
 
 avg_sum = np.zeros((1080,1920,3), np.float32)
 
-for _ in range(nFrames):
+frames = 0
+#for _ in range(nFrames):
+while True:
         # grab the current frame and initialize the occupied/unoccupied
 	(grabbed, frame) = camera.read()
         if frame is None:
                 break
+	frames+=1
 	alpha = 1.0
 	beta = 1.0/nFrames
 	avg_sum = cv2.addWeighted(avg_sum, alpha, frame.astype(np.float32), beta, 0.0)
@@ -36,11 +39,11 @@ camera.release()
 
 
 
-camera = cv2.VideoCapture("square.mkv")
+camera = cv2.VideoCapture("../my_video-10.mkv")
 
 done_frame = avg_sum
 
-for i in range(nFrames):
+for i in range(frames):
         # grab the current frame and initialize the occupied/unoccupied
 
 	(grabbed, frame) = camera.read()
@@ -56,6 +59,6 @@ for i in range(nFrames):
 
 	done_frame += diff
 
-cv2.imwrite("background_with_drones.png", done_frame.astype(np.uint8))
+cv2.imwrite("background_with_drones_video10_two_drones.png", done_frame.astype(np.uint8))
 #cv2.imshow('dst_rt', done_frame.astype(np.uint8))
 #cv2.waitKey(0)

@@ -42,8 +42,8 @@ class CameraDriver:
         # Initialize camera driver.
         # Open output window.
         cv.NamedWindow('filterdemo', cv.CV_WINDOW_NORMAL)
-#	cv.NamedWindow('temp_kernel', cv.CV_WINDOW_NORMAL)
-#	cv.NamedWindow('small_image', cv.CV_WINDOW_NORMAL)
+	cv.NamedWindow('temp_kernel', cv.CV_WINDOW_NORMAL)
+	cv.NamedWindow('small_image', cv.CV_WINDOW_NORMAL)
 
 
 	self.cameraDevice = cameraDevice
@@ -104,7 +104,7 @@ class CameraDriver:
         # Locate all markers in image.
        for k in range(len(self.trackers)):
 #            if(self.oldLocations[k].x is None or self.oldLocations[k].quality < 0.4 and self.oldLocations[k].quality != 0 ):
-            if(self.oldLocations[k].x is None or self.oldLocations[k].quality < 0.4):
+            if self.oldLocations[k].x is None  or self.oldLocations[k].quality < 0.45:
                 # Previous marker location is unknown, search in the entire image.
 		print "Lost track of marker, searching entire image"
                 self.processedFrame = self.trackers[k].analyzeImage(self.currentFrame)
@@ -181,10 +181,11 @@ class RosPublisher:
     def publishMarkerLocations(self, locations):
         j = 0
         for i in self.markers:
-	    print("x: %8.3f y: %8.3f angle: %8.3f quality: %8.3f order: %s" % (locations[j].x, locations[j].y, locations[j].theta, locations[j].quality, locations[j].order))
             #ros function
 #            self.pub[j].publish(  Point( locations[j].x, locations[j].y, locations[j].theta )  )
-            self.pub[j].publish(  Point( locations[j].x, locations[j].y, locations[j].quality )  )
+	    print("x: %8.3f y: %8.3f angle: %8.3f quality: %8.3f order: %s" % (locations[j].x, locations[j].y, locations[j].theta, locations[j].quality, locations[j].order))
+	    if locations[j].quality > 0.45:
+	            self.pub[j].publish(  Point( locations[j].x, locations[j].y, locations[j].quality )  )
             j = j + 1
 
 
@@ -212,7 +213,7 @@ def main():
 #    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="recording_flight_with_5_marker_afternoon.mkv")
 #    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="square.mkv")
 #    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="eskild.mkv")
-    cd = CameraDriver(toFind, defaultKernelSize = 25, cameraDevice="two_drones_in_square.mkv")
+    cd = CameraDriver(toFind, defaultKernelSize = 21, cameraDevice="my_video-10.mkv")# 21 seems good
     t0 = time()
      
 
@@ -220,6 +221,7 @@ def main():
     realCoordinates = [[0, 0], [300, 0], [300, 250], [0, 250]]
     perspectiveConverter = PerspectiveCorrecter(pointLocationsInImage, realCoordinates)
      
+    raw_input("Press enter to start playing video...")
     while cd.running:
         (t1, t0) = (t0, time())
         #print "time for one iteration: %f" % (t0 - t1)

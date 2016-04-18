@@ -120,88 +120,32 @@ class MarkerTracker:
 		angle1 = self.limitAngleToRange(angle1)
 
 
+		w,h = cv.GetSize(img_small)
+
 		xm2 = int(xm + searchDist*math.cos(angle1))
 		ym2 = int(ym + searchDist*math.sin(angle1))
+
+		if ym2 < 0 or xm2 < 0:
+			print "less than zero, line 127"
+			
+		if ym2 > h or xm2 > w:
+#			print "greater than image, line 131"
+			if ym2 > h:
+				ym2 = h-1
+
+			if xm2 > w:
+				xm2 = w-1
 
 		intensity = img_small[ym2, xm2]
 		
 		if intensity < 100:
 			detectedOrder +=1
-			#img_small[ym2-1, xm2-1] = 128
-			#img_small[ym2, xm2] = 128
-			#img_small[ym2+1, xm2+1] = 128
+#			img_small[ym2-1, xm2-1] = 128
+#			img_small[ym2, xm2] = 128
+#			img_small[ym2+1, xm2+1] = 128
 
 	return detectedOrder
 	#cv.SaveImage("output/detect_order.png", img_small)
-
-	#print "detected Order: ", detectedOrder, " order: ", self.order
-
-    def determineMarkerQuality_naive(self, frame_org):
-
-	phase = np.exp((self.limitAngleToRange(-self.orientation))*1j)
-
-	t1_temp = self.kernelComplex*np.power(phase, self.order)
-	t1 = t1_temp.real > self.threshold
-
-	t2_temp = self.kernelComplex*np.power(phase, self.order)
-	t2 = t2_temp.real < -self.threshold
-
-	img_t1_t2_diff = t1.astype(np.float32)-t2.astype(np.float32)
-
-	angleThreshold = 3.14/(2*self.order)
-
-	t3 = np.angle(self.KernelRemoveArmComplex * phase) < angleThreshold
-	t4 = np.angle(self.KernelRemoveArmComplex * phase) > -angleThreshold
-	mask = 1-2*(t3 & t4)
-
-	template = (img_t1_t2_diff) * mask
-	template = cv.fromarray(1-template)
-
-	(xm, ym) = self.lastMarkerLocation
-
-
-	y1 = ym - int(math.floor(float(self.kernelSize/2)))
-	y2 = ym + int(math.ceil(float(self.kernelSize/2)))
-
-	x1 = xm - int(math.floor(float(self.kernelSize/2)))
-	x2 = xm + int(math.ceil(float(self.kernelSize/2)))
-
-
-
-	try:
-		frame = frame_org[y1:y2, x1:x2]
-	except(TypeError):
-		self.quality = 0
-		return
-	w,h = cv.GetSize(frame)
-	im_dst = cv.CreateImage(cv.GetSize(frame), cv.IPL_DEPTH_8U, 1)
-	cv.Threshold(frame, im_dst, 128, 1, cv.CV_THRESH_BINARY)
-
-
-	matches = 0
-	blacks = 0
-	w,h = cv.GetSize(im_dst)
-	for x in xrange(w):
-		for y in xrange(h):
-			if cv.Get2D(im_dst, y, x)[0] == 0: # if pixel is black
-				blacks+=1
-				if cv.Get2D(im_dst, y, x)[0] ==  cv.Get2D(template, y, x)[0]:
-					matches+=1
-			else:
-				continue
-
-
-#	self.quality = float(matches)/(w*h)
-	self.quality = float(matches)/blacks
-
-	im_dst = cv.CreateImage(cv.GetSize(frame), cv.IPL_DEPTH_8U, 1)
-	cv.Threshold(frame, im_dst, 115, 255, cv.CV_THRESH_BINARY)
-
-#	cv.ShowImage("small_image", im_dst)
-#	cv.ShowImage("temp_kernel", template)
-
-	
-
 
     def determineMarkerQuality_Mathias(self, frame):
 
@@ -212,7 +156,6 @@ class MarkerTracker:
 	t2 = (self.kernelComplex*np.power(phase, self.order)).real < -self.threshold
 
 	img_t1_t2_diff = t1.astype(np.int8)-t2.astype(np.int8)
-#	img_t1_t2_diff = t1-t2
 
 	t3 = np.angle(self.KernelRemoveArmComplex * phase) < angleThreshold
 	t4 = np.angle(self.KernelRemoveArmComplex * phase) > -angleThreshold
@@ -223,10 +166,8 @@ class MarkerTracker:
 	template = 127+(1-temp*127)
 
 
-	mask = (temp == -1)*1 + (temp == 1)*1
+#	mask = (temp == -1)*1 + (temp == 1)*1
 
-#	print  str(template).replace('.','').replace('[','').replace(']','')
-#	exit()
 	(xm, ym) = self.lastMarkerLocation
 	try:
 		y1 = ym-self.y1 if ym-self.y1 > 0 else 0
@@ -244,72 +185,42 @@ class MarkerTracker:
 		self.quality = 0.0
 		exit(1)
 
-#	print "size img: ", frame_tmp.shape, " size mask: ", mask.shape
 	img_small = cv.fromarray( frame_tmp.astype( np.uint8 )  )
 
 
 	frame_w, frame_h = cv.GetSize(img_small)
-#	print "img_size: ", cv.GetSize(img_small)
-
 	template = template[0:frame_h, 0:frame_w].copy()
-
 	img_template = cv.fromarray( template.astype( np.uint8 ) )
 
-
-	if True:
+	if False:
 		s = ssim( np.array( img_small ), np.array (img_template ))
-#		print "uality from scipy: ", s
 		self.quality = s
 
-	if False:
-		cv.Threshold( img_small, img_small, 127, 255, cv.CV_THRESH_BINARY)
-
+	if True:
 		cv.ShowImage("temp_kernel", img_template)
 		cv.ShowImage("small_image", img_small)
+
 		matches = 0.0
-#		sum = 0.0
 		px_count = 0
 
 		w,h = cv.GetSize(img_small)
 		for x in xrange(w):
 			for y in xrange(h):
-				if img_template[y, x] != 128:
+				if img_template[y, x] != 128: # Don't pay attention to the gray area
 					px_count+=1
-					if img_small[y, x] == img_template[y, x]:
+					if math.fabs(img_small[y, x] - img_template[y, x]) < 10:
 						matches+=1
 
-
-#		print "Matches: ", matches, "px_count: ", px_count
 		self.quality = matches/(px_count)
-	if False:
-#		cv.ShowImage("small_image", img_small)
 
-		cv.Threshold( img_small, img_small, 127, 255, cv.CV_THRESH_BINARY)
-
-		template = np.array( img_template )
-		template[template == 255] = 1
-		template[template == 0] = 1
-		template[template == 128] = 0
-#		cv.And(img_small, img_small, img_small, mask = cv.fromarray( template ))
-#		res = cv2.bitwise_and(np.array(img_small), np.array(img_small),mask = template)
-		res = cv2.bitwise_xor(np.array(img_small), np.array (img_template),mask = template)
-#		print float(frame_w*frame_h - (res == 1).sum())/(frame_w*frame_h)
-#		print np.array(res)
-		print (res == 1).sum()
-		cv.ShowImage("small_image",  cv.fromarray(res)  )
-
-		cv.MatchTemplate( cv.fromarray( res ), img_template, self.quality_match, cv.CV_TM_CCORR_NORMED) # cv.CV_TM_CCORR_NORMED shows best results
-
-		size = (template == 1).sum()
-		self.quality = float(size - (res == 1).sum())/(size)
-
-#	if True:
-#		cv.ShowImage("temp_kernel", img_template)
-#		cv.ShowImage("small_image", img_small)
-#		cv.MatchTemplate( img_small, img_template, self.quality_match, cv.CV_TM_CCORR_NORMED) # cv.CV_TM_CCORR_NORMED shows best results
-#		self.quality = self.quality_match[0,0]	
-
-	order = self.determineMarkerOrder(frame)
+		if self.quality > 0.45:
+			determinedOrder = self.determineMarkerOrder(frame)
+			#print determinedOrder
+			if self.order != determinedOrder:
+				print "Wrong order"
+				self.quality = 0.0
+		else:
+			print "\t quality: ", self.quality
     def determineMarkerOrientation(self, frame):
         (xm, ym) = self.lastMarkerLocation
         realval = cv.Get2D(self.frameReal, ym, xm)[0]
